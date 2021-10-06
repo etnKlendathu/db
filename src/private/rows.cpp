@@ -2,8 +2,8 @@
 
 namespace fty::db {
 
-RowsImpl::RowsImpl(MYSQL_RES* result):
-    m_res(result, &RowsImpl::close)
+RowsImpl::RowsImpl(MysqlRes&& result):
+    m_res(std::move(result))
 {
 
 }
@@ -25,6 +25,10 @@ size_t RowsImpl::columnCount() const
 size_t RowsImpl::rowsCount() const
 {
     return mysql_num_rows(m_res.get());
+}
+
+RowImpl RowsImpl::fetch() const
+{
 }
 
 }

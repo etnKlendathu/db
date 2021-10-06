@@ -2,12 +2,20 @@
 #include "connection.h"
 #include "fty/db/utils.h"
 #include "fty/db/rows.h"
+#include "mysql.h"
 #include "rows.h"
 #include <iostream>
 #include <memory>
 #include <regex>
 
 namespace fty::db {
+
+// =========================================================================================================================================
+
+static void freeResult(MYSQL_RES* res)
+{
+    mysql_free_result(res);
+}
 
 // =========================================================================================================================================
 
@@ -65,7 +73,14 @@ uint64_t EmptyStatement::execute() const
 
 Rows EmptyStatement::select() const
 {
-    return {};
+    if (mysql_real_query(m_conn, m_query.c_str(), m_query.size())) {
+        throw Error(Error::Code::SqlError, mysql_error(m_conn));
+    }
+    std::unique_ptr<MYSQL_RES, decltype(&freeResult)> result(mysql_store_result(m_conn), &freeResult);
+    if (!result) {
+        throw Error(Error::Code::Error, mysql_error(m_conn));
+    }
+    return Rows(std::make_shared<RowsImpl>(std::move(result)));
 }
 
 // =========================================================================================================================================
@@ -116,11 +131,14 @@ Rows PreparedStatement::select() const
     if (mysql_stmt_execute(m_stmt.get())) {
         throw Error(Error::Code::SqlError, mysql_stmt_error(m_stmt.get()));
     }
-    MYSQL_RES* result = mysql_stmt_result_metadata(m_stmt.get());
+    std::unique_ptr<MYSQL_RES, decltype(&freeResult)> result(mysql_stmt_result_metadata(m_stmt.get()), &freeResult);
     if (!result) {
         throw Error(Error::Code::Error, mysql_stmt_error(m_stmt.get()));
     }
-    return Rows(std::make_shared<RowsImpl>(result));
+    if (mysql_stmt_store_result(m_stmt.get())) {
+      throw Error(Error::Code::Error, mysql_stmt_error(m_stmt.get()));
+    }
+    return Rows(std::make_shared<RowsImpl>(std::move(result)));
 }
 
 // =========================================================================================================================================

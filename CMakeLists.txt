@@ -36,6 +36,8 @@ etn_target(shared ${PROJECT_NAME}
         src/private/bind.h
         src/private/rows.cpp
         src/private/rows.h
+        src/private/row.cpp
+        src/private/row.h
     USES
         fty_common_logging
         mariadb
